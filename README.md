@@ -14,7 +14,7 @@ Dự án này là một công cụ giáo dục, giúp người dùng trực quan
 - ✅ **Mắc kẹt (Local Optima Demo):** Minh họa rõ ràng hạn chế nổi tiếng của thuật toán khi bị mắc kẹt tại điểm cực trị cục bộ.
 - ✅ **Điều khiển Linh hoạt:** Khởi động, dừng, và thiết lập lại lưới dễ dàng.
 - ✅ **Tạo Lưới Ngẫu nhiên:** Tạo ngẫu nhiên các bức tường để tạo ra các kịch bản thử thách khác nhau.
-- ✅ **Tùy chỉnh Kích thước Lưới:** Dễ dàng điều chỉnh kích thước lưới (hiện tại là $25 \times 25$).
+- ✅ **Tùy chỉnh Kích thước Lưới:** Dễ dàng điều chỉnh kích thước lưới (hiện tại là 25 x 25).
 
 ## 📦 Công nghệ Sử dụng
 
