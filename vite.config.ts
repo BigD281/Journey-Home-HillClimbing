@@ -2,6 +2,9 @@ import type { UserConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import { defineConfig } from 'vite'
 
+// Tên repository của bạn trên GitHub.
+const REPO_NAME = 'Journey-Home-HillClimbing';
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   let build: UserConfig['build'], esbuild: UserConfig['esbuild'], define: UserConfig['define']
@@ -30,6 +33,10 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
+    // 👈 THAY ĐỔI CẦN THIẾT CHO GITHUB PAGES
+    base: `/${REPO_NAME}/`, 
+    // 👆 THAY ĐỔI CẦN THIẾT CHO GITHUB PAGES
+    
     plugins: [react()],
     build,
     esbuild,
