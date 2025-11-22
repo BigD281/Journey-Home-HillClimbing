@@ -99,6 +99,4 @@ Mọi đóng góp nhằm cải thiện tính năng, hiệu suất hoặc giao di
 
 ## 👨‍💻 Tác giả
 BigD281
-QangDuc
-TanTai-15
-Happy Pathfinding\! 🚀
+- Happy Pathfinding\! 🚀
