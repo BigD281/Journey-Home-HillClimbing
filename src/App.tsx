@@ -1,46 +1,69 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {Play, RotateCcw, Shuffle, AlertCircle, CheckCircle2, Info} from 'lucide-react';
+import {Play, RotateCcw, Shuffle, AlertCircle, CheckCircle2, Info, PenTool, MapPin, Home} from 'lucide-react';
 import { GRID_SIZE, createInitialGrid, getDistance, getNeighbors, Node, Point } from './lib/grid';
 import Grid from './components/GameGrid';
 import { Toaster, toast } from 'react-hot-toast';
 
 function App() {
-  // Khai báo các trạng thái (State) của ứng dụng
   const [grid, setGrid] = useState<Node[][]>([]);
   const [startPos, setStartPos] = useState<Point>({ x: 1, y: 1 });
-  const [endPos, setEndPos] = useState<Point>({ x: 23, y: 23 });
+  const [endPos, setEndPos] = useState<Point>({ x: 18, y: 18 });
   const [currentPos, setCurrentPos] = useState<Point | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [status, setStatus] = useState<'idle' | 'running' | 'success' | 'stuck'>('idle');
   const [steps, setSteps] = useState(0);
   const [path, setPath] = useState<Point[]>([]);
+  const [editMode, setEditMode] = useState<'wall' | 'start' | 'end' | null>(null);
   const speedRef = useRef(200);
 
-  // Khởi tạo Lưới (Chỉ chạy một lần khi component được tải)
+  // Initialize Grid
   useEffect(() => {
     resetGame();
   }, []);
 
-  const resetGame = (generateWalls = true) => {
-    // Đặt lại các trạng thái ban đầu
+  const resetGame = (generateWalls = true, randomPositions = false) => {
     setIsRunning(false);
     setStatus('idle');
     setSteps(0);
     setPath([]);
-    setCurrentPos({ ...startPos });
+    setEditMode(null);
+
+    let newStart = startPos;
+    let newEnd = endPos;
+
+    // Random start/end positions
+    if (randomPositions) {
+      newStart = {
+        x: Math.floor(Math.random() * (GRID_SIZE - 4)) + 2,
+        y: Math.floor(Math.random() * (GRID_SIZE - 4)) + 2
+      };
+      
+      // Ensure end is far from start
+      do {
+        newEnd = {
+          x: Math.floor(Math.random() * (GRID_SIZE - 4)) + 2,
+          y: Math.floor(Math.random() * (GRID_SIZE - 4)) + 2
+        };
+      } while (getDistance(newStart, newEnd) < GRID_SIZE / 2);
+      
+      setStartPos(newStart);
+      setEndPos(newEnd);
+    }
+
+    setCurrentPos({ ...newStart });
 
     const newGrid = createInitialGrid();
     
-    // Đánh dấu vị trí Bắt đầu và Kết thúc
-    newGrid[startPos.y][startPos.x].isStart = true;
-    newGrid[endPos.y][endPos.x].isEnd = true;
+    // Set Start and End
+    newGrid[newStart.y][newStart.x].isStart = true;
+    newGrid[newEnd.y][newEnd.x].isEnd = true;
 
-    // Generate Random Walls nếu cần
+    // Generate Random Walls if requested
     if (generateWalls) {
       for (let y = 0; y < GRID_SIZE; y++) {
         for (let x = 0; x < GRID_SIZE; x++) {
-          if ((x !== startPos.x || y !== startPos.y) && (x !== endPos.x || y !== endPos.y)) {
-            if (Math.random() < 0.1) { // 10% tỉ lệ sinh ra tưởng
+          if ((x !== newStart.x || y !== newStart.y) && (x !== newEnd.x || y !== newEnd.y)) {
+            if (Math.random() < 0.20) { // 20% chance of wall
               newGrid[y][x].isWall = true;
             }
           }
@@ -51,6 +74,24 @@ function App() {
     setGrid(newGrid);
   };
 
+  const resetState = () => {
+    setIsRunning(false);
+    setStatus('idle');
+    setSteps(0);
+    setPath([]);
+    setCurrentPos({ ...startPos });
+    setEditMode(null);
+
+    // Clear visited and path markers only
+    setGrid(prev => prev.map(row => 
+      row.map(node => ({
+        ...node,
+        visited: false,
+        isPath: false
+      }))
+    ));
+  };
+
   const runHillClimbing = async () => {
     if (isRunning || status === 'success') return;
     
@@ -59,11 +100,11 @@ function App() {
     let current = currentPos || startPos;
     let pathHistory = [...path];
     
-    // Vòng lặp Thuật toán Leo đồi (Hill Climbing Loop)
+    // Hill Climbing Loop
     const interval = setInterval(() => {
       setSteps(prev => prev + 1);
       
-      // Đánh dấu ô hiện tại là đã ghé thăm và là đường đi
+      // Mark current as visited
       setGrid(prev => {
         const newGrid = [...prev];
         newGrid[current.y][current.x].visited = true;
@@ -71,7 +112,7 @@ function App() {
         return newGrid;
       });
 
-      // Kiểm tra xem đã đạt đến mục tiêu chưa
+      // Check if reached goal
       if (current.x === endPos.x && current.y === endPos.y) {
         clearInterval(interval);
         setIsRunning(false);
@@ -80,11 +121,10 @@ function App() {
         return;
       }
 
-      // Lấy các ô lân cận hợp lệ (không phải tường)
+      // Get neighbors
       const neighbors = getNeighbors(grid[current.y][current.x], grid);
       
       if (neighbors.length === 0) {
-        // Nếu không có nước đi nào khả dụng
         clearInterval(interval);
         setIsRunning(false);
         setStatus('stuck');
@@ -95,13 +135,13 @@ function App() {
       // Tính toán Heuristic (khoảng cách đến mục tiêu) cho tất cả các hàng xóm hợp lệ
       // Hill Climbing: Di chuyển đến hàng xóm có khoảng cách đến mục tiêu THẤP NHẤT
       let bestNeighbor: Node | null = null;
-      let minDistance = getDistance(current, endPos); // Khoảng cách hiện tại
+      let minDistance = getDistance(current, endPos); // Current distance
       let bestCandidates: Node[] = [];
       let bestDist = Infinity;
       // Tìm kiếm "đỉnh dốc" tốt nhất (tức là giảm khoảng cách nhanh nhất)
       neighbors.forEach(n => {
         const dist = getDistance(n, endPos);
-        if (dist < bestDist) { 
+        if (dist < bestDist) {
           // Nếu tìm thấy hàng xóm tốt hơn
           bestDist = dist;
           bestCandidates = [n];
@@ -126,7 +166,7 @@ function App() {
 
       // Di chuyển đến hàng xóm tốt nhất
       if (bestCandidates.length > 0) {
-        // Chọn ngẫu nhiên nếu có nhiều hơn một ứng cử viên tốt nhất có khoảng cách bằng nhau
+         // Chọn ngẫu nhiên nếu có nhiều hơn một ứng cử viên tốt nhất có khoảng cách bằng nhau
         bestNeighbor = bestCandidates[Math.floor(Math.random() * bestCandidates.length)];
         current = { x: bestNeighbor.x, y: bestNeighbor.y };
         setCurrentPos(current);
@@ -142,6 +182,45 @@ function App() {
 
     // Dọn dẹp (Cleanup): Dừng Interval khi component bị hủy
     return () => clearInterval(interval);
+  };
+
+
+
+  const handleCellClick = (x: number, y: number) => {
+    if (isRunning || status === 'running') return;
+
+    setGrid(prev => {
+      const newGrid = prev.map(row => row.map(node => ({ ...node })));
+      const node = newGrid[y][x];
+
+      if (editMode === 'wall') {
+        // Toggle wall (can't place on start/end)
+        if (!node.isStart && !node.isEnd) {
+          node.isWall = !node.isWall;
+        }
+      } else if (editMode === 'start') {
+        // Move start position
+        if (!node.isWall && !node.isEnd) {
+          // Clear old start
+          newGrid[startPos.y][startPos.x].isStart = false;
+          // Set new start
+          node.isStart = true;
+          setStartPos({ x, y });
+          setCurrentPos({ x, y });
+        }
+      } else if (editMode === 'end') {
+        // Move end position
+        if (!node.isWall && !node.isStart) {
+          // Clear old end
+          newGrid[endPos.y][endPos.x].isEnd = false;
+          // Set new end
+          node.isEnd = true;
+          setEndPos({ x, y });
+        }
+      }
+
+      return newGrid;
+    });
   };
 
   return (
@@ -200,34 +279,83 @@ function App() {
           <div className="flex flex-col gap-3">
             <button
               onClick={runHillClimbing}
-              disabled={isRunning || status === 'success' || status === 'stuck'}
+              disabled={isRunning || status === 'success' || status === 'stuck' || editMode !== null}
               className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl font-semibold shadow-lg shadow-blue-900/20 transition-all active:scale-95"
             >
               <Play size={18} fill="currentColor" />
-              Start Journey
+              {editMode ? 'Tắt Edit Mode trước' : 'Start'}
             </button>
             
             <div className="flex gap-2">
               <button
-                onClick={() => resetGame(false)}
-                className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-slate-700 hover:bg-slate-600 rounded-xl font-medium transition-all active:scale-95"
+                onClick={resetState}
+                disabled={isRunning}
+                className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 rounded-xl font-medium transition-all active:scale-95"
               >
                 <RotateCcw size={18} />
                 Reset
               </button>
               <button
-                onClick={() => resetGame(true)}
-                className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-slate-700 hover:bg-slate-600 rounded-xl font-medium transition-all active:scale-95"
+                onClick={() => resetGame(true, true)}
+                disabled={isRunning}
+                className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 rounded-xl font-medium transition-all active:scale-95"
               >
                 <Shuffle size={18} />
-                New Map
+                Random
               </button>
             </div>
           </div>
 
-          {/* Legend */}
+          {/* Edit Mode Controls */}
+          <div className="space-y-3 pt-4 border-t border-slate-800">
+            <p className="text-sm font-semibold text-slate-400">Chỉnh sửa bản đồ:</p>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                onClick={() => setEditMode(editMode === 'wall' ? null : 'wall')}
+                disabled={isRunning}
+                className={`flex flex-col items-center gap-1 py-2 px-2 rounded-lg font-medium transition-all active:scale-95 ${
+                  editMode === 'wall' 
+                    ? 'bg-emerald-600 text-white shadow-lg' 
+                    : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
+                } disabled:opacity-50`}
+              >
+                <PenTool size={16} />
+                <span className="text-xs">Tường</span>
+              </button>
+              <button
+                onClick={() => setEditMode(editMode === 'start' ? null : 'start')}
+                disabled={isRunning}
+                className={`flex flex-col items-center gap-1 py-2 px-2 rounded-lg font-medium transition-all active:scale-95 ${
+                  editMode === 'start' 
+                    ? 'bg-green-600 text-white shadow-lg' 
+                    : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
+                } disabled:opacity-50`}
+              >
+                <MapPin size={16} />
+                <span className="text-xs">Bắt đầu</span>
+              </button>
+              <button
+                onClick={() => setEditMode(editMode === 'end' ? null : 'end')}
+                disabled={isRunning}
+                className={`flex flex-col items-center gap-1 py-2 px-2 rounded-lg font-medium transition-all active:scale-95 ${
+                  editMode === 'end' 
+                    ? 'bg-orange-600 text-white shadow-lg' 
+                    : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
+                } disabled:opacity-50`}
+              >
+                <Home size={16} />
+                <span className="text-xs">Kết thúc</span>
+              </button>
+            </div>
+            {editMode && (
+              <p className="text-xs text-yellow-400 bg-yellow-900/20 p-2 rounded border border-yellow-700/30">
+                💡 Click vào ô để {editMode === 'wall' ? 'tạo/xóa tường' : editMode === 'start' ? 'đặt điểm bắt đầu' : 'đặt điểm kết thúc'}
+              </p>
+            )}
+          </div>
+
           <div className="text-xs text-slate-500 space-y-2 pt-4 border-t border-slate-800">
-            <p className="font-semibold text-slate-400 mb-2">Lưu ý:</p>
+            <p className="font-semibold text-slate-400 mb-2">Algorithm Note:</p>
             <p className="flex gap-2 items-start">
               <Info size={14} className="mt-0.5 shrink-0" />
               Hill Climbing là một thuật toán tham lam (greedy algorithm). Nó luôn di chuyển đến ô lân cận gần mục tiêu nhất. Thuật toán này có thể bị mắc kẹt tại các "Cực trị cục bộ" (Local Optima) (hay còn gọi là ngõ cụt) nếu chướng ngại vật cản đường đi trực tiếp đến mục tiêu.
@@ -237,7 +365,12 @@ function App() {
 
         {/* Right Panel: Grid */}
         <div className="relative">
-           <Grid grid={grid} currentPos={currentPos || startPos} />
+           <Grid 
+             grid={grid} 
+             currentPos={currentPos || startPos} 
+             onCellClick={handleCellClick}
+             editMode={editMode}
+           />
            
            {/* Status Overlay */}
            {status === 'stuck' && (
