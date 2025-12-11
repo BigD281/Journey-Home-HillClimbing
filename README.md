@@ -39,8 +39,8 @@ Journey Home HillClimbing/
 │   ├── main.tsx              # Điểm khởi động React
 │   └── index.css             # Tailwind CSS directives 
 ├── image/
-│   ├── BG.jpg                    # File ảnh nền tĩnh
-│   ├── climbing.jpg              # Logo
+│   ├── BG.jpg                # File ảnh nền tĩnh
+│   ├── climbing.jpg          # Logo
 ├── vite.config.ts            # Cấu hình Build Tool (Vite)
 ├── package.json              # Danh sách thư viện (Dependencies)
 ├── tailwind.config.js        # Cấu hình Tailwind CSS
